@@ -1,3 +1,6 @@
 *~
 *.suo
 packages
+.vs
+bin/
+obj/

@@ -1,29 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
 
     <Description>NLog Target that emits the log entries to a fluentd node</Description>
-    <Authors>Moriyoshi Koizumi, Jarred Capellman</Authors>
+    <Authors>Moriyoshi Koizumi, Jarred Capellman, Zysce</Authors>
     <CurrentYear>$([System.DateTime]::Now.ToString(yyyy))</CurrentYear>
-    <Copyright>Copyright (c) 2020 - Moriyoshi Koizumi and Jarred Capellman</Copyright>
+    <Copyright>Copyright (c) 2021 - Moriyoshi Koizumi, Jarred Capellman</Copyright>
 
-    <Version>1.0.6.0</Version>
-    
+    <Version>1.0.0.0</Version>
+
     <PackageTags>NLog;fluentd;log;logging</PackageTags>
     <PackageIconUrl>http://nlog-project.org/N.png</PackageIconUrl>
-    <PackageProjectUrl>https://github.com/jcapellman/NLog.Targets.Fluentd</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Zysce/NLog.Targets.Fluentd</PackageProjectUrl>
     <PackageLicenseUrl>https://raw.githubusercontent.com/fluent/NLog.Targets.Fluentd/master/LICENSE.txt</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>git://github.com/jcapellman/NLog.Targets.Fluentd</RepositoryUrl>
+    <RepositoryUrl>git://github.com/Zysce/NLog.Targets.Fluentd</RepositoryUrl>
     <PackageReleaseNotes>Add exclude properties property</PackageReleaseNotes>
-    <PackageId>NLog.Targets.Fluentd.NetStandard</PackageId>
-    <Product>NLog.Targets.Fluentd.NetStandard</Product>
-    <Company>Moriyoshi Koizumi, Jarred Capellman</Company>
+    <PackageId>NLog.Targets.Fluentd.Net5</PackageId>
+    <Product>NLog.Targets.Fluentd.Net5</Product>
+    <Company>Moriyoshi Koizumi, Jarred Capellman, Zysce</Company>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="MsgPack.Cli" Version="1.0.1" />
-    <PackageReference Include="NLog" Version="4.7.0" />
+    <PackageReference Include="NLog" Version="4.7.10" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <LangVersion>9</LangVersion>
+  </PropertyGroup>
+
 </Project>

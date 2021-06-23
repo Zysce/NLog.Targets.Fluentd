@@ -14,29 +14,67 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using NLog;
+using NLog.Config;
 
 namespace Demo
 {
-    class Program
+  class Program
+  {
+    static void Main()
     {
-        static void Main(string[] args)
-        {
-            var config = new NLog.Config.LoggingConfiguration();
-            using (var fluentdTarget = new NLog.Targets.Fluentd())
-            {
-                fluentdTarget.Layout = new NLog.Layouts.SimpleLayout("${longdate}|${level}|${callsite}|${logger}|${message}");
-                config.AddTarget("fluentd", fluentdTarget);
-                config.LoggingRules.Add(new NLog.Config.LoggingRule("demo", LogLevel.Debug, fluentdTarget));
-                var loggerFactory = new LogFactory(config);
-                var logger = loggerFactory.GetLogger("demo");
-                logger.Info("Hello World!");
-            }
-        }
+      SimpleTest();
+      SimpleTestWithProperties();
     }
+
+    private static void SimpleTest()
+    {
+      System.Console.WriteLine("Simple Test");
+      using (var fluentdTarget = new NLog.Targets.Fluentd())
+      {
+        fluentdTarget.Layout = new NLog.Layouts.SimpleLayout("${longdate}|${level}|${callsite}|${logger}|${message}");
+
+        var logger = CreateLogger(fluentdTarget);
+        logger.Info("Hello World!");
+      }
+
+
+      System.Console.WriteLine("Simple Test Done");
+    }
+
+    private static void SimpleTestWithProperties()
+    {
+      System.Console.WriteLine("Simple Test With Properties");
+      using (var fluentdTarget = new NLog.Targets.Fluentd { IncludeAllProperties = true })
+      {
+        fluentdTarget.Layout = new NLog.Layouts.SimpleLayout("${longdate}|${level}|${callsite}|${logger}|${message}");
+
+        var logger = CreateLogger(fluentdTarget);
+        logger.Properties.Add("test", "test");
+        logger.Info("Hello World!");
+      }
+
+      System.Console.WriteLine("Simple Test With Properties done");
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "for demo purpose")]
+    private static Logger CreateLogger(NLog.Targets.Fluentd fluentdTarget)
+    {
+      var config = CreateConfig(fluentdTarget);
+      var loggerFactory = new LogFactory(config);
+      return loggerFactory.GetLogger("demo");
+    }
+
+    private static LoggingConfiguration CreateConfig(NLog.Targets.Fluentd fluentdTarget)
+    {
+      var config = new LoggingConfiguration();
+
+      config.AddTarget("fluentd", fluentdTarget);
+      config.LoggingRules.Add(new LoggingRule("demo", LogLevel.Debug, fluentdTarget));
+
+      return config;
+    }
+
+    
+  }
 }

@@ -1,13 +1,16 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2013 for Windows Desktop
-VisualStudioVersion = 12.0.21005.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31112.23
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NLog.Targets.Fluentd", "NLog.Targets.Fluentd\NLog.Targets.Fluentd.csproj", "{CC980146-B798-4B17-8582-ECBABFFCB2C9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Demo", "Demo\Demo.csproj", "{F8CCA56E-8EBB-4868-9584-E2C1C42E29E9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo", "Demo\Demo.csproj", "{F62824FC-F95F-4F29-978C-3E827E32FD5C}"
-	ProjectSection(ProjectDependencies) = postProject
-		{CC980146-B798-4B17-8582-ECBABFFCB2C9} = {CC980146-B798-4B17-8582-ECBABFFCB2C9}
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NLog.Targets.Fluentd", "NLog.Targets.Fluentd\NLog.Targets.Fluentd.csproj", "{E47E16DD-8BAC-43E7-A942-D76D7C783F01}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{014C9A5C-B9A9-4AFB-B3AF-1AE58F7F6359}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		Directory.Build.props = Directory.Build.props
 	EndProjectSection
 EndProject
 Global
@@ -16,16 +19,19 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{CC980146-B798-4B17-8582-ECBABFFCB2C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CC980146-B798-4B17-8582-ECBABFFCB2C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CC980146-B798-4B17-8582-ECBABFFCB2C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CC980146-B798-4B17-8582-ECBABFFCB2C9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F62824FC-F95F-4F29-978C-3E827E32FD5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F62824FC-F95F-4F29-978C-3E827E32FD5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F62824FC-F95F-4F29-978C-3E827E32FD5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F62824FC-F95F-4F29-978C-3E827E32FD5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8CCA56E-8EBB-4868-9584-E2C1C42E29E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8CCA56E-8EBB-4868-9584-E2C1C42E29E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8CCA56E-8EBB-4868-9584-E2C1C42E29E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8CCA56E-8EBB-4868-9584-E2C1C42E29E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E47E16DD-8BAC-43E7-A942-D76D7C783F01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E47E16DD-8BAC-43E7-A942-D76D7C783F01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E47E16DD-8BAC-43E7-A942-D76D7C783F01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E47E16DD-8BAC-43E7-A942-D76D7C783F01}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2FD9C1FC-A9AD-4D37-BE30-7BEB987DD21D}
 	EndGlobalSection
 EndGlobal

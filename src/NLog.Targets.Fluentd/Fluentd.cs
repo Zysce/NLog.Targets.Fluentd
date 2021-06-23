@@ -1,4 +1,4 @@
-// NLog.Targets.Fluentd
+﻿// NLog.Targets.Fluentd
 // 
 // Copyright (c) 2014 Moriyoshi Koizumi and contributors.
 // 
@@ -17,361 +17,255 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Net.Sockets;
 using System.Diagnostics;
 using System.Reflection;
-using MsgPack;
-using MsgPack.Serialization;
+using System.Linq;
 
 namespace NLog.Targets
 {
-    internal class OrdinaryDictionarySerializer : MessagePackSerializer<IDictionary<string, object>>
+
+  [Target("Fluentd")]
+  public class Fluentd : TargetWithLayout
+  {
+    public string Host { get; set; }
+
+    public int Port { get; set; }
+
+    public string Tag { get; set; }
+
+    public bool NoDelay { get; set; }
+
+    public int ReceiveBufferSize { get; set; }
+
+    public int SendBufferSize { get; set; }
+
+    public int SendTimeout { get; set; }
+
+    public int ReceiveTimeout { get; set; }
+
+    public bool LingerEnabled { get; set; }
+
+    public int LingerTime { get; set; }
+
+    public bool EmitStackTraceWhenAvailable { get; set; }
+
+    public bool IncludeAllProperties { get; set; }
+
+    public bool IncludeCallerInfo { get; set; }
+
+    public ISet<string> ExcludeProperties { get; }
+
+    private TcpClient? _client;
+
+    private Stream? _stream;
+
+    private FluentdEmitter? _emitter;
+
+    public Fluentd()
     {
-        private readonly SerializationContext embeddedContext;
-
-        internal OrdinaryDictionarySerializer(SerializationContext ownerContext, SerializationContext embeddedContext) : base(ownerContext)
-        {
-            this.embeddedContext = embeddedContext ?? ownerContext;
-        }
-
-        protected override void PackToCore(Packer packer, IDictionary<string, object> objectTree)
-        {
-            packer.PackMapHeader(objectTree);
-            foreach (KeyValuePair<string, object> pair in objectTree)
-            {
-                packer.PackString(pair.Key);
-                if (pair.Value == null)
-                {
-                    packer.PackNull();
-                }
-                else
-                {
-                    packer.Pack(pair.Value, this.embeddedContext);
-                }
-            }
-        }
-
-        protected void UnpackTo(Unpacker unpacker, IDictionary<string, object> dict, long mapLength)
-        {
-            for (long i = 0; i < mapLength; i++)
-            {
-                string key;
-                MessagePackObject value;
-                if (!unpacker.ReadString(out key))
-                {
-                    throw new InvalidMessagePackStreamException("string expected for a map key");
-                }
-                if (!unpacker.ReadObject(out value))
-                {
-                    throw new InvalidMessagePackStreamException("unexpected EOF");
-                }
-                if (unpacker.LastReadData.IsNil)
-                {
-                    dict.Add(key, null);
-                }
-                else if (unpacker.IsMapHeader)
-                {
-                    long innerMapLength = value.AsInt64();
-                    var innerDict = new Dictionary<string, object>();
-                    UnpackTo(unpacker, innerDict, innerMapLength);
-                    dict.Add(key, innerDict);
-                }
-                else if (unpacker.IsArrayHeader)
-                {
-                    long innerArrayLength = value.AsInt64();
-                    var innerArray = new List<object>();
-                    UnpackTo(unpacker, innerArray, innerArrayLength);
-                    dict.Add(key, innerArray);
-                }
-                else
-                {
-                    dict.Add(key, value.ToObject());
-                }
-            }
-        }
-
-        protected void UnpackTo(Unpacker unpacker, IList<object> array, long arrayLength)
-        {
-            for (long i = 0; i < arrayLength; i++)
-            {
-                MessagePackObject value;
-                if (!unpacker.ReadObject(out value))
-                {
-                    throw new InvalidMessagePackStreamException("unexpected EOF");
-                }
-                if (unpacker.IsMapHeader)
-                {
-                    long innerMapLength = value.AsInt64();
-                    var innerDict = new Dictionary<string, object>();
-                    UnpackTo(unpacker, innerDict, innerMapLength);
-                    array.Add(innerDict);
-                }
-                else if (unpacker.IsArrayHeader)
-                {
-                    long innerArrayLength = value.AsInt64();
-                    var innerArray = new List<object>();
-                    UnpackTo(unpacker, innerArray, innerArrayLength);
-                    array.Add(innerArray);
-                }
-                else
-                {
-                    array.Add(value.ToObject());
-                }
-            }
-        }
-
-        public void UnpackTo(Unpacker unpacker, IDictionary<string, object> collection)
-        {
-            long mapLength;
-            if (!unpacker.ReadMapLength(out mapLength))
-            {
-                throw new InvalidMessagePackStreamException("map header expected");
-            }
-            UnpackTo(unpacker, collection, mapLength);
-        }
-
-        protected override IDictionary<string, object> UnpackFromCore(Unpacker unpacker)
-        {
-            if (!unpacker.IsMapHeader)
-            {
-                throw new InvalidMessagePackStreamException("map header expected");
-            }
-
-            var retval = new Dictionary<string, object>();
-            UnpackTo(unpacker, retval);
-            return retval;
-        }
-
-        public void UnpackTo(Unpacker unpacker, object collection)
-        {
-            var dictionary = collection as IDictionary<string, object>;
-            if (dictionary == null)
-                throw new NotSupportedException();
-            UnpackTo(unpacker, dictionary);
-        }
+      Host = "127.0.0.1";
+      Port = 24224;
+      ReceiveBufferSize = 8192;
+      SendBufferSize = 8192;
+      ReceiveTimeout = 1000;
+      SendTimeout = 1000;
+      LingerEnabled = true;
+      LingerTime = 1000;
+      EmitStackTraceWhenAvailable = false;
+      Tag = Assembly.GetCallingAssembly().GetName().Name!;
+      ExcludeProperties = new HashSet<string>();
+      IncludeCallerInfo = false;
     }
 
-    internal class FluentdEmitter
+    protected override void InitializeTarget()
     {
-        private static DateTime unixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        private readonly Packer packer;
-        private readonly SerializationContext serializationContext;
-        private readonly Stream destination;
-
-        public void Emit(DateTime timestamp, string tag, IDictionary<string, object> data)
-        {
-            long unixTimestamp = timestamp.ToUniversalTime().Subtract(unixEpoch).Ticks / 10000000;
-            this.packer.PackArrayHeader(3);
-            this.packer.PackString(tag, Encoding.UTF8);
-            this.packer.Pack((ulong)unixTimestamp);
-            this.packer.Pack(data, serializationContext);
-            this.destination.Flush();    // Change to packer.Flush() when packer is upgraded
-        }
-
-        public FluentdEmitter(Stream stream)
-        {
-            this.destination = stream;
-            this.packer = Packer.Create(destination);
-            var embeddedContext  = new SerializationContext(this.packer.CompatibilityOptions);
-            embeddedContext.Serializers.Register(new OrdinaryDictionarySerializer(embeddedContext, null));
-            this.serializationContext = new SerializationContext(PackerCompatibilityOptions.PackBinaryAsRaw);
-            this.serializationContext.Serializers.Register(new OrdinaryDictionarySerializer(this.serializationContext, embeddedContext));
-        }
+      base.InitializeTarget();
     }
 
-    [Target("Fluentd")]
-    public class Fluentd : NLog.Targets.TargetWithLayout
+    protected void EnsureConnected()
     {
-        public string Host { get; set; }
+      if (_client == null)
+      {
+        InitializeClient();
+        ConnectClient();
+      }
+      else if (!_client.Connected)
+      {
+        Cleanup();
+        InitializeClient();
+        ConnectClient();
+      }
+    }
 
-        public int Port { get; set; }
 
-        public string Tag { get; set; }
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "should catch all exceptions")]
+    protected void Cleanup()
+    {
+      try
+      {
+        _stream?.Dispose();
+        _client?.Close();
+      }
+      catch (Exception ex)
+      {
+        Common.InternalLogger.Warn("Fluentd Close - " + ex.ToString());
+      }
+      finally
+      {
+        _stream = null;
+        _client = null;
+        _emitter = null;
+      }
+    }
 
-        public bool NoDelay { get; set; }
+    protected override void Dispose(bool disposing)
+    {
+      Cleanup();
+      base.Dispose(disposing);
+    }
 
-        public int ReceiveBufferSize { get; set; }
+    protected override void CloseTarget()
+    {
+      Cleanup();
+      base.CloseTarget();
+    }
 
-        public int SendBufferSize { get; set; }
-
-        public int SendTimeout { get; set; }
-
-        public int ReceiveTimeout { get; set; }
-
-        public bool LingerEnabled { get; set; }
-
-        public int LingerTime { get; set; }
-
-        public bool EmitStackTraceWhenAvailable { get; set; }
-
-        public bool IncludeAllProperties { get; set; }
-
-        public ISet<string> ExcludeProperties { get; set; }
-
-        private TcpClient client;
-
-        private Stream stream;
-
-        private FluentdEmitter emitter;
-
-        protected override void InitializeTarget()
-        {
-            base.InitializeTarget();
-        }
-
-        private void InitializeClient()
-        {
-            this.client = new TcpClient();
-            this.client.NoDelay = this.NoDelay;
-            this.client.ReceiveBufferSize = this.ReceiveBufferSize;
-            this.client.SendBufferSize = this.SendBufferSize;
-            this.client.SendTimeout = this.SendTimeout;
-            this.client.ReceiveTimeout = this.ReceiveTimeout;
-            this.client.LingerState = new LingerOption(this.LingerEnabled, this.LingerTime);
-        }
-
-        protected void EnsureConnected()
-        {
-            if (this.client == null)
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "from nlog")]
+    protected override void Write(LogEventInfo logEvent)
+    {
+      var record = new Dictionary<string, object?> 
             {
-                InitializeClient();
-                ConnectClient();
-            }
-            else if (!this.client.Connected)
-            {
-                Cleanup();
-                InitializeClient();
-                ConnectClient();
-            }
-        }
-
-        private void ConnectClient()
-        {
-            this.client.Connect(this.Host, this.Port);
-            this.stream = this.client.GetStream();
-            this.emitter = new FluentdEmitter(this.stream);
-        }
-
-        protected void Cleanup()
-        {
-            try
-            {
-                this.stream?.Dispose();
-                this.client?.Close();
-            }
-            catch (Exception ex)
-            {
-                NLog.Common.InternalLogger.Warn("Fluentd Close - " + ex.ToString());
-            }
-            finally
-            {
-                this.stream = null;
-                this.client = null;
-                this.emitter = null;
-            }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            Cleanup();
-            base.Dispose(disposing);
-        }
-
-        protected override void CloseTarget()
-        {
-            Cleanup();
-            base.CloseTarget();
-        }
-
-        protected override void Write(LogEventInfo logEvent)
-        {
-            var record = new Dictionary<string, object> {
                 { "level", logEvent.Level.Name },
                 { "message", Layout.Render(logEvent) },
                 { "logger_name", logEvent.LoggerName },
                 { "sequence_id", logEvent.SequenceID },
             };
-            if (this.EmitStackTraceWhenAvailable && logEvent.HasStackTrace)
-            {
-                var transcodedFrames = new List<Dictionary<string, object>>();
-                StackTrace stackTrace = logEvent.StackTrace;
-                foreach (StackFrame frame in stackTrace.GetFrames())
-                {
-                    var transcodedFrame = new Dictionary<string, object>
+
+      AddAdditionnalProperties(logEvent, record);
+
+      EmitRecord(logEvent, record);
+    }
+
+    private void AddAdditionnalProperties(LogEventInfo logEvent, Dictionary<string, object?> record)
+    {
+      if (EmitStackTraceWhenAvailable && logEvent.HasStackTrace)
+      {
+        AddStackTrace(logEvent, record);
+      }
+
+      if (IncludeAllProperties && logEvent.HasProperties)
+      {
+        AddLoggerProperties(logEvent, record);
+      }
+
+      if (IncludeCallerInfo)
+      {
+        AddCallerInfo(logEvent, record);
+      }
+    }
+
+    private static void AddCallerInfo(LogEventInfo logEvent, Dictionary<string, object?> record)
+    {
+      var callerInfo = new Dictionary<string, object?>
+        {
+          { "class_name", logEvent.CallerClassName},
+          { "member_name", logEvent.CallerMemberName},
+          { "filePath", logEvent.CallerFilePath},
+          { "lineNumber", logEvent.CallerLineNumber}
+        };
+
+      record.Add("caller", callerInfo);
+    }
+
+    private void EmitRecord(LogEventInfo logEvent, Dictionary<string, object?> record)
+    {
+      try
+      {
+        EnsureConnected();
+      }
+      catch (Exception ex)
+      {
+        Common.InternalLogger.Warn("Fluentd Connect - " + ex.ToString());
+        throw;  // Notify NLog of failure
+      }
+
+      try
+      {
+        _emitter?.Emit(logEvent.TimeStamp, Tag, record);
+      }
+      catch (Exception ex)
+      {
+        Common.InternalLogger.Warn("Fluentd Emit - " + ex.ToString());
+        throw;  // Notify NLog of failure
+      }
+    }
+
+    private void AddLoggerProperties(LogEventInfo logEvent, Dictionary<string, object?> record)
+    {
+      var filteredProperties = logEvent.Properties
+                .Where(x =>
+                  !string.IsNullOrEmpty(x.Key.ToString()) &&
+                  !ExcludeProperties.Contains(x.Key.ToString()!));
+
+      foreach (var property in filteredProperties)
+      {
+        var propertyKey = property.Key.ToString();
+
+        record[propertyKey!] = SerializePropertyValue(property.Value);
+      }
+    }
+
+    private static void AddStackTrace(LogEventInfo logEvent, Dictionary<string, object?> record)
+    {
+      var transcodedFrames = new List<Dictionary<string, object?>>();
+      StackTrace stackTrace = logEvent.StackTrace;
+      foreach (StackFrame frame in stackTrace.GetFrames())
+      {
+        var transcodedFrame = new Dictionary<string, object?>
                     {
                         { "filename", frame.GetFileName() },
                         { "line", frame.GetFileLineNumber() },
                         { "column", frame.GetFileColumnNumber() },
-                        { "method", frame.GetMethod().ToString() },
+                        { "method", frame.GetMethod()?.ToString() },
                         { "il_offset", frame.GetILOffset() },
                         { "native_offset", frame.GetNativeOffset() },
                     };
-                    transcodedFrames.Add(transcodedFrame);
-                }
-                record.Add("stacktrace", transcodedFrames);
-            }
-            if (this.IncludeAllProperties && logEvent.Properties.Count > 0)
-            {
-                foreach (var property in logEvent.Properties)
-                {
-                    var propertyKey = property.Key.ToString();
-                    if (string.IsNullOrEmpty(propertyKey))
-                        continue;
-
-                    if (ExcludeProperties.Contains(propertyKey))
-                        continue;
-
-                    record[propertyKey] = SerializePropertyValue(propertyKey, property.Value);
-                }
-            }
-
-            try
-            {
-                EnsureConnected();
-            }
-            catch (Exception ex)
-            {
-                NLog.Common.InternalLogger.Warn("Fluentd Connect - " + ex.ToString());
-                throw;  // Notify NLog of failure
-            }
-
-            try
-            {
-                this.emitter?.Emit(logEvent.TimeStamp, this.Tag, record);
-            }
-            catch (Exception ex)
-            {
-                NLog.Common.InternalLogger.Warn("Fluentd Emit - " + ex.ToString());
-                throw;  // Notify NLog of failure
-            }
-        }
-
-        private static object SerializePropertyValue(string propertyKey, object propertyValue)
-        {
-            if (propertyValue == null || Convert.GetTypeCode(propertyValue) != TypeCode.Object || propertyValue is decimal)
-            {
-                return propertyValue;   // immutable
-            }
-            else
-            {
-                return propertyValue.ToString();
-            }
-        }
-
-        public Fluentd()
-        {
-            this.Host = "127.0.0.1";
-            this.Port = 24224;
-            this.ReceiveBufferSize = 8192;
-            this.SendBufferSize = 8192;
-            this.ReceiveTimeout = 1000;
-            this.SendTimeout = 1000;
-            this.LingerEnabled = true;
-            this.LingerTime = 1000;
-            this.EmitStackTraceWhenAvailable = false;
-            this.Tag = Assembly.GetCallingAssembly().GetName().Name;
-            this.ExcludeProperties = new HashSet<string>();
-        }
+        transcodedFrames.Add(transcodedFrame);
+      }
+      record.Add("stacktrace", transcodedFrames);
     }
+
+    private void InitializeClient()
+    {
+      _client = new TcpClient
+      {
+        NoDelay = NoDelay,
+        ReceiveBufferSize = ReceiveBufferSize,
+        SendBufferSize = SendBufferSize,
+        SendTimeout = SendTimeout,
+        ReceiveTimeout = ReceiveTimeout,
+        LingerState = new LingerOption(LingerEnabled, LingerTime)
+      };
+    }
+
+    private void ConnectClient()
+    {
+      _client!.Connect(Host, Port);
+      _stream = _client.GetStream();
+      _emitter = new FluentdEmitter(_stream);
+    }
+
+    private static object? SerializePropertyValue(object propertyValue)
+    {
+      if (propertyValue == null || Convert.GetTypeCode(propertyValue) != TypeCode.Object || propertyValue is decimal)
+      {
+        return propertyValue;   // immutable
+      }
+      else
+      {
+        return propertyValue.ToString();
+      }
+    }
+  }
 }
