@@ -1,3 +1,5 @@
+# Fork of [Nlog.Targets.Fluentd.NetStandard package](https://github.com/jcapellman/NLog.Targets.Fluentd)
+
 # NLog.Targets.Fluentd
 
 NLog.Targets.Fluents is a custom target of [NLog](https://github.com/nlog/NLog) that emits the log entries to a [fluentd](http://www.fluentd.org/) node.

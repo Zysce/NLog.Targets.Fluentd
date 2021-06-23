@@ -6,25 +6,39 @@
     <Description>NLog Target that emits the log entries to a fluentd node</Description>
     <Authors>Moriyoshi Koizumi, Jarred Capellman, Zysce</Authors>
     <CurrentYear>$([System.DateTime]::Now.ToString(yyyy))</CurrentYear>
-    <Copyright>Copyright (c) 2021 - Moriyoshi Koizumi, Jarred Capellman</Copyright>
+    <Copyright>Copyright (c) 2021 - Moriyoshi Koizumi, Jarred Capellman, Zysce</Copyright>
 
     <Version>1.0.0.0</Version>
 
     <PackageTags>NLog;fluentd;log;logging</PackageTags>
-    <PackageIconUrl>http://nlog-project.org/N.png</PackageIconUrl>
+    <PackageIcon>N.png</PackageIcon>
     <PackageProjectUrl>https://github.com/Zysce/NLog.Targets.Fluentd</PackageProjectUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/fluent/NLog.Targets.Fluentd/master/LICENSE.txt</PackageLicenseUrl>
+    <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/Zysce/NLog.Targets.Fluentd</RepositoryUrl>
     <PackageReleaseNotes>Add exclude properties property</PackageReleaseNotes>
     <PackageId>NLog.Targets.Fluentd.Net5</PackageId>
     <Product>NLog.Targets.Fluentd.Net5</Product>
     <Company>Moriyoshi Koizumi, Jarred Capellman, Zysce</Company>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="images\N.png" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MsgPack.Cli" Version="1.0.1" />
     <PackageReference Include="NLog" Version="4.7.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>/</PackagePath>
+    </None>
   </ItemGroup>
 
   <PropertyGroup>
