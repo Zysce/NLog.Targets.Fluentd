@@ -6,5 +6,7 @@ namespace Web.Tests
   {
     void ExecuteSample(bool includeStack, bool includeProps, bool includeCallerInfo);
     Task ExecuteSampleAsync(bool includeStack, bool includeProps, bool includeCallerInfo);
+    void ExecuteLogSample();
+    Task ExecuteLogSampleAsync();
   }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using Tests.Common;
 
@@ -6,16 +7,16 @@ namespace Web.Tests.Controllers
 {
   [ApiController]
   [Route("[controller]")]
-  public class DemoController : ControllerBase
+  public class TestController : ControllerBase
   {
     private readonly ISampleService service;
 
-    public DemoController(ISampleService service)
+    public TestController(ISampleService service)
     {
       this.service = service;
     }
 
-    [HttpGet]
+    [HttpGet("nlog")]
     public IActionResult Get()
     {
       using (var factory = new FluentdTargetLoggerFactory())
@@ -32,7 +33,7 @@ namespace Web.Tests.Controllers
       return Ok();
     }
 
-    [HttpGet("ioc")]
+    [HttpGet("nlog/ioc")]
     public IActionResult GetFromIoc(bool includeStack = true, bool includeProps = true, bool includeCallerInfo = true)
     {
       service.ExecuteSample(includeStack, includeProps, includeCallerInfo);
@@ -40,10 +41,26 @@ namespace Web.Tests.Controllers
       return Ok();
     }
 
-    [HttpGet("iocasync")]
+    [HttpGet("nlog/ioc/async")]
     public async Task<IActionResult> GetFromIocAsync(bool includeStack = true, bool includeProps = true, bool includeCallerInfo = true)
     {
       await service.ExecuteSampleAsync(includeStack, includeProps, includeCallerInfo).ConfigureAwait(false);
+
+      return Ok();
+    }
+
+    [HttpGet("log")]
+    public IActionResult TestFromLogger()
+    {
+      service.ExecuteLogSample();
+
+      return Ok();
+    }
+
+    [HttpGet("log/async")]
+    public async Task<IActionResult> TestFromLoggerAsync()
+    {
+      await service.ExecuteLogSampleAsync().ConfigureAwait(false);
 
       return Ok();
     }
