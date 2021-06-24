@@ -15,8 +15,8 @@ NLog.Targets.Fluents is a custom target of [NLog](https://github.com/nlog/NLog) 
 | SendBufferSize              | Send buffer size                                                                                              | 8192                |
 | SendTimeout                 | Send timeout                                                                                                  | 1000                |
 | LingerEnabled               | Wait for all the data to be sent when closing the connection                                                  | true                |
-| LingerTime                  | Linger timeout                                                                                                | 2                   |
-| EmitStackTraceWhenAvailable | Emit a stacktrace for every log entry when available  (May be pretty big, especially with Web app since it includes nlog stack)                                                        | false               |
+| LingerTime                  | Linger timeout                                                                                                | 1000                |
+| EmitStackTraceWhenAvailable | Emit a stacktrace for every log entry when available  (May be pretty big, especially with Web app since it includes nlog stack)     | false               |
 | IncludeAllProperties        | Include structured logging parameters for every log entry                                                     | false               |
 | IncludeCallerInfo           | Include caller information (caller class name, member name, filepath and linenumber)                          | false               |
 | ExcludeProperties           | Comma separated string with names which properties to exclude. Only used when IncludeAllProperties is _true_. | empty (ex: prop1, pro2) |
