@@ -21,12 +21,14 @@ using System.Net.Sockets;
 using System.Diagnostics;
 using System.Reflection;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace NLog.Targets
 {
 
   [Target("Fluentd")]
-  public class Fluentd : TargetWithLayout
+  public class Fluentd : AsyncTaskTarget
   {
     public string Host { get; set; }
 
@@ -78,29 +80,76 @@ namespace NLog.Targets
       IncludeCallerInfo = false;
     }
 
-    protected override void InitializeTarget()
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "from nlog")]
+    protected override async Task WriteAsyncTask(LogEventInfo logEvent, CancellationToken cancellationToken)
     {
-      base.InitializeTarget();
+      var record = new Dictionary<string, object?>
+            {
+                { "level", logEvent.Level.Name },
+                { "message", Layout.Render(logEvent) },
+                { "logger_name", logEvent.LoggerName },
+                { "sequence_id", logEvent.SequenceID },
+            };
+
+      AddAdditionnalProperties(logEvent, record);
+
+      await EmitRecord(logEvent, record, cancellationToken).ConfigureAwait(false);
     }
 
-    protected void EnsureConnected()
+
+    protected override void Dispose(bool disposing)
+    {
+      Cleanup();
+      base.Dispose(disposing);
+    }
+
+    protected override void CloseTarget()
+    {
+      Cleanup();
+      base.CloseTarget();
+    }
+
+    private async Task EmitRecord(LogEventInfo logEvent, Dictionary<string, object?> record, CancellationToken cancellationToken)
+    {
+      try
+      {
+        await EnsureConnected(cancellationToken).ConfigureAwait(false);
+      }
+      catch (Exception ex)
+      {
+        Common.InternalLogger.Warn("Fluentd Connect - " + ex.ToString());
+        throw;  // Notify NLog of failure
+      }
+
+      try
+      {
+        await _emitter!.Emit(logEvent.TimeStamp, Tag, record, cancellationToken).ConfigureAwait(false);
+      }
+      catch (Exception ex)
+      {
+        Common.InternalLogger.Warn("Fluentd Emit - " + ex.ToString());
+        throw;  // Notify NLog of failure
+      }
+    }
+
+    private async Task EnsureConnected(CancellationToken cancellationToken)
     {
       if (_client == null)
       {
         InitializeClient();
-        ConnectClient();
+        await ConnectClient(cancellationToken).ConfigureAwait(false);
       }
       else if (!_client.Connected)
       {
         Cleanup();
         InitializeClient();
-        ConnectClient();
+        await ConnectClient(cancellationToken).ConfigureAwait(false);
       }
     }
 
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "should catch all exceptions")]
-    protected void Cleanup()
+    private void Cleanup()
     {
       try
       {
@@ -117,34 +166,6 @@ namespace NLog.Targets
         _client = null;
         _emitter = null;
       }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-      Cleanup();
-      base.Dispose(disposing);
-    }
-
-    protected override void CloseTarget()
-    {
-      Cleanup();
-      base.CloseTarget();
-    }
-
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1062:Validate arguments of public methods", Justification = "from nlog")]
-    protected override void Write(LogEventInfo logEvent)
-    {
-      var record = new Dictionary<string, object?> 
-            {
-                { "level", logEvent.Level.Name },
-                { "message", Layout.Render(logEvent) },
-                { "logger_name", logEvent.LoggerName },
-                { "sequence_id", logEvent.SequenceID },
-            };
-
-      AddAdditionnalProperties(logEvent, record);
-
-      EmitRecord(logEvent, record);
     }
 
     private void AddAdditionnalProperties(LogEventInfo logEvent, Dictionary<string, object?> record)
@@ -176,29 +197,6 @@ namespace NLog.Targets
         };
 
       record.Add("caller", callerInfo);
-    }
-
-    private void EmitRecord(LogEventInfo logEvent, Dictionary<string, object?> record)
-    {
-      try
-      {
-        EnsureConnected();
-      }
-      catch (Exception ex)
-      {
-        Common.InternalLogger.Warn("Fluentd Connect - " + ex.ToString());
-        throw;  // Notify NLog of failure
-      }
-
-      try
-      {
-        _emitter?.Emit(logEvent.TimeStamp, Tag, record);
-      }
-      catch (Exception ex)
-      {
-        Common.InternalLogger.Warn("Fluentd Emit - " + ex.ToString());
-        throw;  // Notify NLog of failure
-      }
     }
 
     private void AddLoggerProperties(LogEventInfo logEvent, Dictionary<string, object?> record)
@@ -249,9 +247,9 @@ namespace NLog.Targets
       };
     }
 
-    private void ConnectClient()
+    private async Task ConnectClient(CancellationToken cancellationToken)
     {
-      _client!.Connect(Host, Port);
+      await _client!.ConnectAsync(Host, Port, cancellationToken).ConfigureAwait(false);
       _stream = _client.GetStream();
       _emitter = new FluentdEmitter(_stream);
     }

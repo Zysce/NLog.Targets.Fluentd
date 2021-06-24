@@ -18,6 +18,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using MsgPack;
 using MsgPack.Serialization;
 
@@ -25,28 +27,43 @@ namespace NLog.Targets
 {
   internal class FluentdEmitter
   {
-    private static DateTime unixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime unixEpoch = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
     private readonly Packer packer;
     private readonly SerializationContext serializationContext;
     private readonly Stream destination;
-
-    public void Emit(DateTime timestamp, string tag, IDictionary<string, object?> data)
-    {
-      long unixTimestamp = timestamp.ToUniversalTime().Subtract(unixEpoch).Ticks / 10000000;
-      packer.PackArrayHeader(3);
-      packer.PackString(tag, Encoding.UTF8);
-      packer.Pack((ulong)unixTimestamp);
-      packer.Pack(data, serializationContext);
-      destination.Flush();    // Change to packer.Flush() when packer is upgraded
-    }
 
     public FluentdEmitter(Stream stream)
     {
       destination = stream;
       packer = Packer.Create(destination);
+      serializationContext = new SerializationContext(PackerCompatibilityOptions.PackBinaryAsRaw);
+      ConfigureSerializationContext();
+    }
+
+    public async Task Emit(DateTime timestamp, string tag, IDictionary<string, object?> data, CancellationToken cancellationToken)
+    {
+      long unixTimestamp = GetUnixTimestamp(timestamp);
+      await PackData(tag, data, unixTimestamp, cancellationToken).ConfigureAwait(false);
+      await packer.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task PackData(string tag, IDictionary<string, object?> data, long unixTimestamp, CancellationToken cancellationToken)
+    {
+      await packer.PackArrayHeaderAsync(3, cancellationToken).ConfigureAwait(false);
+      await packer.PackStringAsync(tag, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+      await packer.PackAsync((ulong)unixTimestamp, cancellationToken).ConfigureAwait(false);
+      await packer.PackAsync(data, serializationContext, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static long GetUnixTimestamp(DateTime timestamp)
+    {
+      return timestamp.ToUniversalTime().Subtract(unixEpoch).Ticks / 10000000;
+    }
+
+    private void ConfigureSerializationContext()
+    {
       var embeddedContext = new SerializationContext(packer.CompatibilityOptions);
       embeddedContext.Serializers.Register(new OrdinaryDictionarySerializer(embeddedContext, null));
-      serializationContext = new SerializationContext(PackerCompatibilityOptions.PackBinaryAsRaw);
       serializationContext.Serializers.Register(new OrdinaryDictionarySerializer(serializationContext, embeddedContext));
     }
   }

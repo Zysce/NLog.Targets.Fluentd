@@ -51,16 +51,16 @@ namespace NLog.Targets
     {
       for (long i = 0; i < mapLength; i++)
       {
-        string key;
-        MessagePackObject value;
-        if (!unpacker.ReadString(out key))
+        if (!unpacker.ReadString(out string key))
         {
           throw new InvalidMessagePackStreamException("string expected for a map key");
         }
-        if (!unpacker.ReadObject(out value))
+
+        if (!unpacker.ReadObject(out MessagePackObject value))
         {
           throw new InvalidMessagePackStreamException("unexpected EOF");
         }
+
         if (unpacker.LastReadData.IsNil)
         {
           dict.Add(key, null);
@@ -90,8 +90,7 @@ namespace NLog.Targets
     {
       for (long i = 0; i < arrayLength; i++)
       {
-        MessagePackObject value;
-        if (!unpacker.ReadObject(out value))
+        if (!unpacker.ReadObject(out MessagePackObject value))
         {
           throw new InvalidMessagePackStreamException("unexpected EOF");
         }
@@ -118,8 +117,7 @@ namespace NLog.Targets
 
     public void UnpackTo(Unpacker unpacker, IDictionary<string, object?> collection)
     {
-      long mapLength;
-      if (!unpacker.ReadMapLength(out mapLength))
+      if (!unpacker.ReadMapLength(out long mapLength))
       {
         throw new InvalidMessagePackStreamException("map header expected");
       }
