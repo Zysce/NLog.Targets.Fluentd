@@ -16,7 +16,7 @@
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/Zysce/NLog.Targets.Fluentd</RepositoryUrl>
-    <PackageReleaseNotes>Add exclude properties property</PackageReleaseNotes>
+    <PackageReleaseNotes>Use .Net5, Fix IncludeAllProperties, Use AsyncTaskTarget</PackageReleaseNotes>
     <PackageId>NLog.Targets.Fluentd.Net5</PackageId>
     <Product>NLog.Targets.Fluentd.Net5</Product>
     <Company>Moriyoshi Koizumi, Jarred Capellman, Zysce</Company>
