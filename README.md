@@ -6,20 +6,20 @@ NLog.Targets.Fluents is a custom target of [NLog](https://github.com/nlog/NLog) 
 
 ## Settings
 
-| Setting                     | Description                                                                                                   | Example             |
+| Setting                     | Description                                                                                                   | Default             |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------- |
-| Host                        | Host name of the fluentd node                                                                                 | example.local       |
+| Host                        | Host name of the fluentd node                                                                                 | 127.0.0.1           |
 | Port                        | Port number of the fluentd node                                                                               | 24224               |
-| Tag                         | Fluentd tag name                                                                                              | windowshost         |
-| NoDelay                     | Enable Nagle's algorithm                                                                                      | true                |
+| Tag                         | Fluentd tag name                                                                                              | caller assembly name|
+| NoDelay                     | Send log even if buffer is not full                                                                           | false               |
 | SendBufferSize              | Send buffer size                                                                                              | 8192                |
-| SendTimeout                 | Send timeout                                                                                                  | 2                   |
-| LingerEnabled               | Wait for all the data to be sent when closing the connection                                                  | false               |
+| SendTimeout                 | Send timeout                                                                                                  | 1000                |
+| LingerEnabled               | Wait for all the data to be sent when closing the connection                                                  | true                |
 | LingerTime                  | Linger timeout                                                                                                | 2                   |
 | EmitStackTraceWhenAvailable | Emit a stacktrace for every log entry when available  (May be pretty big, especially with Web app since it includes nlog stack)                                                        | false               |
 | IncludeAllProperties        | Include structured logging parameters for every log entry                                                     | false               |
 | IncludeCallerInfo           | Include caller information (caller class name, member name, filepath and linenumber)                          | false               |
-| ExcludeProperties           | Comma separated string with names which properties to exclude. Only used when IncludeAllProperties is _true_. | property1,property2 |
+| ExcludeProperties           | Comma separated string with names which properties to exclude. Only used when IncludeAllProperties is _true_. | empty (ex: prop1, pro2) |
 
 ## License
 
