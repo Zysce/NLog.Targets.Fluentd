@@ -54,7 +54,7 @@ namespace NLog.Targets
 
     public bool IncludeCallerInfo { get; set; }
 
-    public ISet<string> ExcludeProperties { get; }
+    public ISet<string> ExcludeProperties { get; set; }
 
     private TcpClient? _client;
 
