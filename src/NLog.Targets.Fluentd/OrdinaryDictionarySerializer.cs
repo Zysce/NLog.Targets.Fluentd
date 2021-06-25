@@ -14,8 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using MsgPack;
 using MsgPack.Serialization;
 
@@ -32,34 +33,49 @@ namespace NLog.Targets
 
     protected override void PackToCore(Packer packer, IDictionary<string, object?> objectTree)
     {
-      packer.PackMapHeader(objectTree);
+      PackToAsyncCore(packer, objectTree, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    protected override IDictionary<string, object?> UnpackFromCore(Unpacker unpacker)
+    {
+      return UnpackFromAsyncCore(unpacker, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    protected override async Task PackToAsyncCore(Packer packer, IDictionary<string, object?> objectTree, CancellationToken cancellationToken)
+    {
+      await packer.PackMapHeaderAsync(objectTree, cancellationToken).ConfigureAwait(false);
       foreach (KeyValuePair<string, object?> pair in objectTree)
       {
-        packer.PackString(pair.Key);
+        await packer.PackStringAsync(pair.Key, cancellationToken).ConfigureAwait(false);
         if (pair.Value == null)
         {
-          packer.PackNull();
+          await packer.PackNullAsync(cancellationToken).ConfigureAwait(false);
         }
         else
         {
-          packer.Pack(pair.Value, embeddedContext);
+          await packer.PackAsync(pair.Value, embeddedContext, cancellationToken).ConfigureAwait(false);
         }
       }
     }
 
-    protected void UnpackTo(Unpacker unpacker, IDictionary<string, object?> dict, long mapLength)
+    protected override async Task<IDictionary<string, object?>> UnpackFromAsyncCore(Unpacker unpacker, CancellationToken cancellationToken)
+    {
+      if (!unpacker.IsMapHeader)
+      {
+        throw new InvalidMessagePackStreamException("map header expected");
+      }
+
+      var retval = new Dictionary<string, object?>();
+      await UnpackTo(unpacker, retval, cancellationToken).ConfigureAwait(false);
+      return retval;
+    }
+
+    private async Task UnpackTo(Unpacker unpacker, IDictionary<string, object?> dict, long mapLength, CancellationToken cancellationToken)
     {
       for (long i = 0; i < mapLength; i++)
       {
-        if (!unpacker.ReadString(out string key))
-        {
-          throw new InvalidMessagePackStreamException("string expected for a map key");
-        }
-
-        if (!unpacker.ReadObject(out MessagePackObject value))
-        {
-          throw new InvalidMessagePackStreamException("unexpected EOF");
-        }
+        var key = await GetString(unpacker, cancellationToken).ConfigureAwait(false);
+        var value = await GetObject(unpacker, cancellationToken).ConfigureAwait(false);
 
         if (unpacker.LastReadData.IsNil)
         {
@@ -69,14 +85,14 @@ namespace NLog.Targets
         {
           long innerMapLength = value.AsInt64();
           var innerDict = new Dictionary<string, object?>();
-          UnpackTo(unpacker, innerDict, innerMapLength);
+          await UnpackTo(unpacker, innerDict, innerMapLength, cancellationToken).ConfigureAwait(false);
           dict.Add(key, innerDict);
         }
         else if (unpacker.IsArrayHeader)
         {
           long innerArrayLength = value.AsInt64();
           var innerArray = new List<object>();
-          UnpackTo(unpacker, innerArray, innerArrayLength);
+          await UnpackTo(unpacker, innerArray, innerArrayLength, cancellationToken).ConfigureAwait(false);
           dict.Add(key, innerArray);
         }
         else
@@ -86,26 +102,23 @@ namespace NLog.Targets
       }
     }
 
-    protected void UnpackTo(Unpacker unpacker, IList<object> array, long arrayLength)
+    private async Task UnpackTo(Unpacker unpacker, IList<object> array, long arrayLength, CancellationToken cancellationToken)
     {
       for (long i = 0; i < arrayLength; i++)
       {
-        if (!unpacker.ReadObject(out MessagePackObject value))
-        {
-          throw new InvalidMessagePackStreamException("unexpected EOF");
-        }
+        var value = await GetObject(unpacker, cancellationToken).ConfigureAwait(false);
         if (unpacker.IsMapHeader)
         {
           long innerMapLength = value.AsInt64();
           var innerDict = new Dictionary<string, object?>();
-          UnpackTo(unpacker, innerDict, innerMapLength);
+          await UnpackTo(unpacker, innerDict, innerMapLength, cancellationToken).ConfigureAwait(false);
           array.Add(innerDict);
         }
         else if (unpacker.IsArrayHeader)
         {
           long innerArrayLength = value.AsInt64();
           var innerArray = new List<object>();
-          UnpackTo(unpacker, innerArray, innerArrayLength);
+          await UnpackTo(unpacker, innerArray, innerArrayLength, cancellationToken).ConfigureAwait(false);
           array.Add(innerArray);
         }
         else
@@ -115,32 +128,30 @@ namespace NLog.Targets
       }
     }
 
-    public void UnpackTo(Unpacker unpacker, IDictionary<string, object?> collection)
+    private async Task UnpackTo(Unpacker unpacker, IDictionary<string, object?> collection, CancellationToken cancellationToken)
     {
-      if (!unpacker.ReadMapLength(out long mapLength))
-      {
-        throw new InvalidMessagePackStreamException("map header expected");
-      }
-      UnpackTo(unpacker, collection, mapLength);
+      var mapLength = await GetMapLength(unpacker, cancellationToken).ConfigureAwait(false);
+      await UnpackTo(unpacker, collection, mapLength, cancellationToken).ConfigureAwait(false);
     }
 
-    protected override IDictionary<string, object?> UnpackFromCore(Unpacker unpacker)
+    private static async Task<string> GetString(Unpacker unpacker, CancellationToken cancellationToken)
     {
-      if (!unpacker.IsMapHeader)
-      {
-        throw new InvalidMessagePackStreamException("map header expected");
-      }
-
-      var retval = new Dictionary<string, object?>();
-      UnpackTo(unpacker, retval);
-      return retval;
+      var readStringResult = await unpacker.ReadStringAsync(cancellationToken).ConfigureAwait(false);
+      return !readStringResult.Success
+          ? throw new InvalidMessagePackStreamException("string expected for a map key")
+          : readStringResult.Value;
     }
 
-    public void UnpackTo(Unpacker unpacker, object collection)
+    private static async Task<MessagePackObject> GetObject(Unpacker unpacker, CancellationToken cancellationToken)
     {
-      if (collection is not IDictionary<string, object?> dictionary)
-        throw new NotSupportedException();
-      UnpackTo(unpacker, dictionary);
+      var readObjectResult = await unpacker.ReadObjectAsync(cancellationToken).ConfigureAwait(false);
+      return !readObjectResult.Success ? throw new InvalidMessagePackStreamException("unexpected EOF") : readObjectResult.Value;
+    }
+
+    private static async Task<long> GetMapLength(Unpacker unpacker, CancellationToken cancellationToken)
+    {
+      var mapLengthResult = await unpacker.ReadMapLengthAsync(cancellationToken).ConfigureAwait(false);
+      return !mapLengthResult.Success ? throw new InvalidMessagePackStreamException("map header expected") : mapLengthResult.Value;
     }
   }
 }

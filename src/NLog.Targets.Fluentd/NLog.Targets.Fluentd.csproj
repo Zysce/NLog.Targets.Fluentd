@@ -8,7 +8,7 @@
     <CurrentYear>$([System.DateTime]::Now.ToString(yyyy))</CurrentYear>
     <Copyright>Copyright (c) 2021 - Moriyoshi Koizumi, Jarred Capellman, Zysce</Copyright>
 
-    <Version>1.0.1.0</Version>
+    <Version>1.0.2.0</Version>
 
     <PackageTags>NLog;fluentd;log;logging</PackageTags>
     <PackageIcon>N.png</PackageIcon>
@@ -16,7 +16,7 @@
     <PackageLicenseUrl></PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/Zysce/NLog.Targets.Fluentd</RepositoryUrl>
-    <PackageReleaseNotes>Use .Net5, Fix IncludeAllProperties, Use AsyncTaskTarget</PackageReleaseNotes>
+    <PackageReleaseNotes>Use async Dictionary serializer</PackageReleaseNotes>
     <PackageId>NLog.Targets.Fluentd.Net5</PackageId>
     <Product>NLog.Targets.Fluentd.Net5</Product>
     <Company>Moriyoshi Koizumi, Jarred Capellman, Zysce</Company>
